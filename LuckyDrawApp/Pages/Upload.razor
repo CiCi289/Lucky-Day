@@ -1,0 +1,309 @@
+﻿@page "/upload"
+@using ExcelDataReader
+@using LuckyDrawApp.Models
+@using System.Data
+@using LuckyDrawApp.Services
+@using System.Text
+@inject IJSRuntime JSRuntime
+@inject IndexedDBService IndexedDBService
+
+<h1>Upload excel file of Lucky Draw Participants</h1>
+@if (isLoading)
+{
+  <div class="text-center">
+    <div class="spinner-border text-primary" role="status">
+      <span class="sr-only"></span>
+      <p>Loading...</p>
+    </div>
+  </div>
+}
+
+@if (!isAuthorized)
+{
+  <div>
+    <input @bind="inputPassword" type="password" placeholder="Enter password" />
+    <button @onclick="CheckPassword">Unlock</button>
+    @if (!string.IsNullOrEmpty(message))
+    {
+      <p class="text-danger">@message</p>
+    }
+  </div>
+}
+else
+{
+  <InputFile OnChange="OnInputFileChange" accept=".xlsx, .xls" class="mt-4" />
+
+  <button @onclick="ClearStoreAsync">Clear All Entry Records</button>
+  <button @onclick="DeleteDatabaseAsync">Delete Database</button>
+  @if (!string.IsNullOrEmpty(duplicateMessage))
+  {
+    <div class="alert alert-info">@duplicateMessage</div>
+  }
+}
+
+@code {
+  //Auth
+  private bool isAuthorized = false;
+  private string inputPassword = "";
+  private string message = "";
+
+  private Dictionary<string, string> validPasswords = new Dictionary<string, string>
+    {
+        {"08/2024", "4f5cf11c-8259-475c-b0fa-41884a7760bb"},
+        {"09/2024", "c573d8d1-d610-4a43-a147-81ffc4ee3c70"},
+        {"10/2024", "71cc9e3c-1f80-4ee0-81df-6ca980531ae4"},
+        {"11/2024", "5f029543-4b47-4604-97c2-157e8134671d"},
+        {"12/2024", "c319712c-ad24-4e82-a643-94cc1a4b934d"},
+        {"01/2025", "2dc9f959-6ef3-44f0-a5cd-a897c5dcccdc"},
+
+        // Add more as needed
+    };
+
+  private bool isLoading = false;
+  private string duplicateMessage = "";
+  private int duplicateCount = 0;
+
+  protected override async Task OnInitializedAsync()
+  {
+    await IndexedDBService.CreateEntryDbAsync("MyDatabase");
+  }
+
+  private void CheckPassword()
+  {
+    var currentDate = DateTime.Now;
+    var currentKey = $"{currentDate.Month.ToString("00")}/{currentDate.Year}";
+    if (validPasswords.ContainsKey(currentKey) && validPasswords[currentKey] == inputPassword)
+    {
+      isAuthorized = true;
+      message = "Access granted for Upload.";
+    }
+    else
+    {
+      isAuthorized = false;
+      message = "Invalid Password or Password expired."; 
+    }
+  }
+
+
+  // private async Task OnInputFileChange(InputFileChangeEventArgs e)
+  // {
+  //   var file = e.File;
+  //   if (file == null) return;
+
+  //   isLoading = true;
+  //   var maxFileSize = 1024 * 1024 * 1024;
+  //   MemoryStream memoryStream = new MemoryStream();
+  //   await file.OpenReadStream(maxFileSize).CopyToAsync(memoryStream);
+  //   memoryStream.Position = 0; // Reset the position of the MemoryStream to the beginning.
+
+  //   try
+  //   {
+  //     using var reader = ExcelReaderFactory.CreateReader(memoryStream);
+  //     var result = reader.AsDataSet(new ExcelDataSetConfiguration()
+  //       {
+  //         ConfigureDataTable = (_) => new ExcelDataTableConfiguration() { UseHeaderRow = true }
+  //       });
+
+  //     Console.WriteLine($"added to datarow");
+  //     var table = result.Tables[0];
+  //     Console.WriteLine($"Checking Starts");
+  //     //>>Check duplicate "Code" with Groupby, Get codes with count more than 1, Orderby, keep the first one before adding from excel
+
+  //     // var duplicateEntries = table.AsEnumerable()
+  //     //                           .GroupBy(row => row["Code"].ToString())
+  //     //                           .Where(g => g.Count() > 1)
+  //     //                           .OrderBy(g => g.Key)
+  //     //                           .Select(g => new
+  //     //                           { Code = g.Key,
+  //     //                             Count = g.Count()
+  //     //                           });
+
+  //     var duplicateEntries = table.AsEnumerable()
+  //                               .GroupBy(row => row["Code"].ToString())
+  //                               .Where(g => g.Count() > 1)
+  //                               .ToDictionary(g => g.Key, g => g.Count());
+
+
+  //     // foreach (var dup in duplicateEntries)
+  //     // {
+  //     //   Console.WriteLine($"Dup: {dup} Code: {dup.Code}, Count: {dup.Count}");
+  //     // }
+
+  //     var uniqueEntries = table.AsEnumerable()
+  //                           .GroupBy(row => row["Code"].ToString())
+  //                           .Select(g =>
+  //                           {
+  //                             if (duplicateEntries.ContainsKey(g.Key))
+  //                             {
+  //                               return g.Take(1);
+  //                             }
+  //                             else
+  //                             {
+  //                               return g;
+
+  //                             }
+  //                           })
+  //                           .SelectMany(g => g);
+
+  //     foreach (var item in uniqueEntries)
+  //     {
+  //       Console.WriteLine($"item: {item} itemCode: {item.Table.Columns}");
+  //     }
+
+
+  //     // var uniqueEntries = table.AsEnumerable()
+  //     //                   .GroupBy(row => row["Code"].ToString())
+  //     //                   .Where(g => g.Count() > 1)
+  //     //                   .OrderBy(g => g.Key)
+  //     //                   .Select(g => new
+  //     //                   {
+  //     //                     First = g.FirstOrDefault(),
+  //     //                   })
+  //     //                   .ToList();
+
+  //     // Console.WriteLine($"{uniqueEntries}");
+
+  //     // foreach (var item in duplicateEntries)
+  //     // {
+  //     //     var takenEntry = item.FirstOrDefault();
+  //     //     Console.WriteLine($"{takenEntry}");
+  //     // }
+
+
+
+  //     foreach (DataRow row in uniqueEntries)
+  //     {
+  //       var raffleEntry = new RaffleEntryBase
+  //         {
+  //           Code = row.Table.Columns.Contains("Code") ? row["Code"].ToString() : "",
+  //           Name = row.Table.Columns.Contains("Name") ? row["Name"].ToString() : "",
+  //           PhoneNumber = row.Table.Columns.Contains("PhoneNumber") ? row["PhoneNumber"].ToString() : ""
+  //         };
+
+  //       // Only add the entry if the 'Code' is present
+  //       if (!string.IsNullOrWhiteSpace(raffleEntry.Code))
+  //       {
+  //         await IndexedDBService.AddItemAsync("MyDatabase", "RaffleEntry", raffleEntry);
+  //       }
+  //     }
+
+
+  //   }
+  //   catch (Exception ex)
+  //   {
+  //     Console.WriteLine($"Error processing Excel file: {ex.Message}");
+  //   }
+  //   finally
+  //   {
+  //     isLoading = false;
+  //   }
+  // }
+
+  private async Task OnInputFileChange(InputFileChangeEventArgs e)
+  {
+    var file = e.File;
+    if (file == null) return;
+
+    isLoading = true;
+    var maxFileSize = 1024 * 1024 * 1024;
+    MemoryStream memoryStream = new MemoryStream();
+    await file.OpenReadStream(maxFileSize).CopyToAsync(memoryStream);
+    memoryStream.Position = 0; // Reset the position of the MemoryStream to the beginning.
+
+    try
+    {
+      // Enable Streaming Mode
+      var config = new ExcelReaderConfiguration()
+        {
+          LeaveOpen = true, // Keeps the stream open after reading
+          FallbackEncoding = Encoding.UTF8 // Ensure encoding is correct
+        };
+
+      using var reader = ExcelReaderFactory.CreateReader(memoryStream, config);
+
+      var processedCodes = new HashSet<string>();
+
+
+      bool isFirstRow = true;
+      while (reader.Read())
+      {
+        if (isFirstRow)
+        {
+          isFirstRow = false;
+          continue; // Skip header row
+        }
+
+        // Safely get values by checking if the column index exists
+        string code = reader.FieldCount > 0 ? reader.GetValue(0)?.ToString() : null;
+        string name = reader.FieldCount > 1 ? reader.GetValue(1)?.ToString() : null;
+        string phoneNumber = reader.FieldCount > 2 ? reader.GetValue(2)?.ToString() : null;
+
+        if (string.IsNullOrWhiteSpace(code)) continue; // Skip if code is empty
+
+        // Check if the code has already been processed
+        if (!processedCodes.Contains(code))
+        {
+          // Add code to the HashSet
+          processedCodes.Add(code);
+
+          // Create a new RaffleEntryBase object
+          var raffleEntry = new RaffleEntryBase
+            {
+              Code = code,
+              Name = name,
+              PhoneNumber = phoneNumber
+            };
+
+          // Insert the entry into the database
+          await IndexedDBService.AddItemAsync("MyDatabase", "RaffleEntry", raffleEntry);
+        }
+        else
+        {
+          // Skip processing this row as it is a duplicate
+          duplicateCount++;
+        }
+      }
+    }
+    catch (Exception ex)
+    {
+      Console.WriteLine($"Error processing Excel file: {ex.Message}");
+    }
+    finally
+    {
+      isLoading = false;
+      if (duplicateCount != 0)
+      {
+        duplicateMessage = $"Detected and removed {duplicateCount} duplicate codes.";
+      }
+    }
+  }
+
+  private async Task ClearStoreAsync()
+  {
+    try
+    {
+      var result = await IndexedDBService.ClearStoreAsync("MyDatabase", "RaffleEntry");
+      Console.WriteLine(result);
+      StateHasChanged();
+    }
+    catch (Exception ex)
+    {
+      Console.Error.WriteLine("Failed to clear store: " + ex.Message);
+    }
+  }
+
+  private async Task DeleteDatabaseAsync()
+  {
+    try
+    {
+      var result = await IndexedDBService.DeleteDatabaseAsync("MyDatabase");
+      Console.WriteLine(result); 
+      StateHasChanged();
+    }
+    catch (Exception ex)
+    {
+      Console.Error.WriteLine("Failed to delete database: " + ex.Message);
+    }
+  }
+}
+

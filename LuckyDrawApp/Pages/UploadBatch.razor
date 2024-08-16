@@ -1,0 +1,595 @@
+﻿@page "/upload-batch"
+@using ExcelDataReader
+@using LuckyDrawApp.Models
+@using System.Data
+@using LuckyDrawApp.Services
+@using System.Text
+@inject IJSRuntime JSRuntime
+@inject IndexedDBService IndexedDBService
+@inject NavigationManager navigationManager
+
+@using System.Diagnostics;
+
+
+<div class="container mt-3">
+  <h1 class="text-white">Upload excel file of Lucky Draw Participants</h1>
+
+  <div class="row">
+    <div class="col-md-12">
+
+      @if (isLoading)
+      {
+        <div class="text-center">
+          <div class="spinner-border text-white" role="status">
+            <span class="sr-only"></span>
+            
+          </div>
+          <p class="text-center">Loading Data... Please Wait :)</p>
+        </div>
+      }
+
+      @if (!isAuthorized)
+      {
+        <div>
+          <input @bind="inputPassword" type="password" placeholder="Enter password" />
+          <button @onclick="CheckPassword">Unlock</button>
+          @if (!string.IsNullOrEmpty(authenticationMessage))
+          {
+            <p class="text-danger">@authenticationMessage</p>
+          }
+
+        </div>
+      }
+      else
+      {
+        @if (!string.IsNullOrEmpty(duplicateMessage))
+        {
+          <div class="alert alert-info">@duplicateMessage</div>
+        }
+        <div class="d-flex col-md-12 py-3">
+          <InputFile OnChange="OnInputFileChange" accept=".xlsx, .xls" class="btn golden-button py-3 text-center mt-4" />
+
+        </div>
+        @if (!string.IsNullOrEmpty(storeClearedMessage))
+        {
+          <div class="alert alert-info">@storeClearedMessage</div>
+        }
+        <div class="d-flex col-md-12 py-3">
+          <button @onclick="ClearStoreAsync" class="btn btn-danger">Clear All Entry Records</button>
+        </div>
+
+        <div class="d-flex col-md-12 py-3">
+          <button @onclick="DeleteDatabaseAsync" class="btn btn-danger">Delete Database</button>
+        </div>
+
+        <div class="d-flex col-md-12 py-3">
+          <button type="button" class="btn btn-dark" href="" @onclick="@(()=>navigationManager.NavigateTo("/"))">Back to Dashboard</button>
+        </div>
+
+      }
+    </div>
+  </div>
+</div>
+
+<style>
+  .white-text {
+    color: floralwhite;
+  }
+</style>
+
+@code {
+  //Auth
+  private bool isAuthorized = false;
+  private string inputPassword = "";
+  private string authenticationMessage = "";
+
+  private Dictionary<string, string> validPasswords = new Dictionary<string, string>
+{
+    {"08/2024", "4f5cf11c-8259-475c-b0fa-41884a7760bb"},
+    {"09/2024", "c573d8d1-d610-4a43-a147-81ffc4ee3c70"},
+    {"10/2024", "71cc9e3c-1f80-4ee0-81df-6ca980531ae4"},
+    {"11/2024", "5f029543-4b47-4604-97c2-157e8134671d"},
+    {"12/2024", "c319712c-ad24-4e82-a643-94cc1a4b934d"},
+    {"01/2025", "2dc9f959-6ef3-44f0-a5cd-a897c5dcccdc"},
+    {"02/2025", "a96db6a6-f9e2-4b6e-848a-7259917ab074"},
+    {"03/2025", "ecae0851-9034-4eb9-9b4b-9ac941246b91"},
+    {"04/2025", "15679f8a-5f1e-44c7-8fbe-650ff759b022"},
+    {"05/2025", "23634748-71c6-4bc9-ac85-f497e4abe18a"},
+    {"06/2025", "de1bf3d0-3674-4fc9-a863-79ddf1f9d241"},
+    {"07/2025", "bec9d7c1-2523-42a1-b6f3-f0a475463561"},
+    {"08/2025", "ece7c36b-ce04-4717-9cc6-81953104bd0a"},
+    {"09/2025", "734d3260-8884-40ed-beef-183d9c80ad64"},
+    {"10/2025", "f694e98c-fc6d-49fb-be7f-9dd87e6bb953"},
+    {"11/2025", "5c9eacdc-5725-4250-b846-d0db03f72415"},
+    {"12/2025", "938d655d-1b98-48df-90e8-c5aeca801867"},
+    {"01/2026", "a1aa2450-0ba4-423e-9622-d7f3562b8108"},
+    {"02/2026", "76129609-a15c-4292-8b34-420c36d43e81"},
+    {"03/2026", "a334faac-9b4d-4e27-a44b-f5a3bead3fbd"},
+    {"04/2026", "55873f65-d6bb-4736-882c-0e753c9ab5e6"},
+    {"05/2026", "2f286c83-515c-46a3-8e6b-89ebbeed8e14"},
+    {"06/2026", "43dcf872-53df-47b0-9b0a-3fea0e80024e"},
+    {"07/2026", "c6944509-7f7f-4bb8-adb5-626b844d210d"},
+    {"08/2026", "55c3b3e5-1143-49d3-8bd7-417fa6fc0fc4"},
+    {"09/2026", "dc65cdb2-ee69-450e-954c-a9d48bf30e46"},
+    {"10/2026", "abe93f57-a11f-4dcb-b573-b34209becb70"},
+    {"11/2026", "b31bcd1f-5550-4060-abeb-65fcd96a75e2"},
+    {"12/2026", "ad3296e5-0105-446c-871d-4ae27eb608f2"},
+    {"01/2027", "408c7fde-9e15-47cf-9581-5cdf2e465925"},
+    {"02/2027", "95147026-7cc4-4f16-a186-4ac13be14362"},
+    {"03/2027", "ed2298f5-9b30-46b8-a0e2-04612852c5fd"},
+    {"04/2027", "21b04a7b-efbc-470a-8118-0d27982f9063"},
+    {"05/2027", "eba5c3e6-0cc5-44c2-8fe3-b39549293358"},
+    {"06/2027", "805e7ab8-191d-452b-9fe0-51dc6c5f5413"},
+    {"07/2027", "7e8c009c-8e9e-4d38-9215-6c0e78522f5d"},
+    {"08/2027", "c1f5e8a0-0adf-4ce5-8ed6-c7733ebce4c4"},
+    {"09/2027", "bb94fb14-227c-4796-bbcc-a410f9dcf7f9"},
+    {"10/2027", "877ab5ae-e1d8-46e8-b70a-d526d1fb4a4e"},
+    {"11/2027", "c169f3c8-280d-42c2-93ec-79420737a7c2"},
+    {"12/2027", "f519cacf-b707-4eb9-9261-34c66525232f"},
+    {"01/2028", "001587f4-b8ad-488e-add4-76dd8272d585"},
+    {"02/2028", "d49a620b-26eb-4e69-a7bf-29b15570a2c8"},
+    {"03/2028", "78255041-3d0d-4bba-87c3-7ec8ce01b37b"},
+    {"04/2028", "b6671c3e-a24f-4d7f-a78c-49532559dbb5"},
+    {"05/2028", "134c7b79-ba78-4df2-a9a1-94724c5447fc"},
+    {"06/2028", "9f029242-ccf9-4d29-9255-06efe202568a"},
+    {"07/2028", "09f84e71-8b18-43ff-8dea-08869355c804"},
+    {"08/2028", "68fc1373-81a2-4506-a840-5420ce38e487"},
+    {"09/2028", "5ac30679-d6ab-45b1-ab1f-0a892399baa7"},
+    {"10/2028", "143d176a-bf25-40dc-8748-daa6fedb667c"},
+    {"11/2028", "6810796a-884d-4476-904e-cadeda90a736"},
+    {"12/2028", "2d5c24e7-06d9-4a36-8878-2132cb866162"},
+    {"01/2029", "ea784c57-3710-4876-afcf-3b2d58cf6ce0"},
+    {"02/2029", "3e5c1785-0784-49e9-8f67-ad4d7b95c4ad"},
+    {"03/2029", "159c0da5-9c3a-4eb3-991c-2b72564934cf"},
+    {"04/2029", "d0b8c246-2df1-435e-b56f-6845cd48fb0b"},
+    {"05/2029", "c712fbeb-bfc0-4b27-a7c6-f1b8f12ac8b2"},
+    {"06/2029", "1ae330b4-b864-4ae3-a8cd-2e8a0df533e3"},
+    {"07/2029", "e76d44d1-16e5-48fd-8361-8a700aa0edd6"},
+};
+
+  private bool isLoading = false;
+  private string duplicateMessage = "";
+  private int duplicateCount = 0;
+
+  private bool _isStoreCleared = false;
+  private string storeClearedMessage = "";
+
+  private bool _isDatabaseDeleted = false;
+
+  protected override async Task OnInitializedAsync()
+  {
+    await IndexedDBService.CreateEntryDbAsync("EntryDatabase");
+  }
+
+  private void CheckPassword()
+  {
+    var currentDate = DateTime.Now;
+    var currentKey = $"{currentDate.Month.ToString("00")}/{currentDate.Year}";
+    if (validPasswords.ContainsKey(currentKey) && validPasswords[currentKey] == inputPassword)
+    {
+      isAuthorized = true;
+      authenticationMessage = "Access granted for Upload.";
+    }
+    else
+    {
+      isAuthorized = false;
+      authenticationMessage = "Invalid Password or Password expired.";
+    }
+  }
+
+  //No longer used
+
+  // private async Task OnInputFileChange(InputFileChangeEventArgs e)
+  // {
+  //   var file = e.File;
+  //   if (file == null) return;
+
+  //   isLoading = true;
+  //   var maxFileSize = 1024 * 1024 * 1024;
+  //   MemoryStream memoryStream = new MemoryStream();
+  //   await file.OpenReadStream(maxFileSize).CopyToAsync(memoryStream);
+  //   memoryStream.Position = 0; // Reset the position of the MemoryStream to the beginning.
+
+  //   try
+  //   {
+  //     using var reader = ExcelReaderFactory.CreateReader(memoryStream);
+  //     var result = reader.AsDataSet(new ExcelDataSetConfiguration()
+  //       {
+  //         ConfigureDataTable = (_) => new ExcelDataTableConfiguration() { UseHeaderRow = true }
+  //       });
+
+  //     Console.WriteLine($"added to datarow");
+  //     var table = result.Tables[0];
+  //     Console.WriteLine($"Checking Starts");
+  //     //>>Check duplicate "Code" with Groupby, Get codes with count more than 1, Orderby, keep the first one before adding from excel
+
+  //     // var duplicateEntries = table.AsEnumerable()
+  //     //                           .GroupBy(row => row["Code"].ToString())
+  //     //                           .Where(g => g.Count() > 1)
+  //     //                           .OrderBy(g => g.Key)
+  //     //                           .Select(g => new
+  //     //                           { Code = g.Key,
+  //     //                             Count = g.Count()
+  //     //                           });
+
+  //     var duplicateEntries = table.AsEnumerable()
+  //                               .GroupBy(row => row["Code"].ToString())
+  //                               .Where(g => g.Count() > 1)
+  //                               .ToDictionary(g => g.Key, g => g.Count());
+
+
+  //     // foreach (var dup in duplicateEntries)
+  //     // {
+  //     //   Console.WriteLine($"Dup: {dup} Code: {dup.Code}, Count: {dup.Count}");
+  //     // }
+
+  //     var uniqueEntries = table.AsEnumerable()
+  //                           .GroupBy(row => row["Code"].ToString())
+  //                           .Select(g =>
+  //                           {
+  //                             if (duplicateEntries.ContainsKey(g.Key))
+  //                             {
+  //                               return g.Take(1);
+  //                             }
+  //                             else
+  //                             {
+  //                               return g;
+
+  //                             }
+  //                           })
+  //                           .SelectMany(g => g);
+
+  //     foreach (var item in uniqueEntries)
+  //     {
+  //       Console.WriteLine($"item: {item} itemCode: {item.Table.Columns}");
+  //     }
+
+
+  //     // var uniqueEntries = table.AsEnumerable()
+  //     //                   .GroupBy(row => row["Code"].ToString())
+  //     //                   .Where(g => g.Count() > 1)
+  //     //                   .OrderBy(g => g.Key)
+  //     //                   .Select(g => new
+  //     //                   {
+  //     //                     First = g.FirstOrDefault(),
+  //     //                   })
+  //     //                   .ToList();
+
+  //     // Console.WriteLine($"{uniqueEntries}");
+
+  //     // foreach (var item in duplicateEntries)
+  //     // {
+  //     //     var takenEntry = item.FirstOrDefault();
+  //     //     Console.WriteLine($"{takenEntry}");
+  //     // }
+
+  //     foreach (DataRow row in uniqueEntries)
+  //     {
+  //       var raffleEntry = new RaffleEntryBase
+  //         {
+  //           Code = row.Table.Columns.Contains("Code") ? row["Code"].ToString() : "",
+  //           Name = row.Table.Columns.Contains("Name") ? row["Name"].ToString() : "",
+  //           PhoneNumber = row.Table.Columns.Contains("PhoneNumber") ? row["PhoneNumber"].ToString() : ""
+  //         };
+
+  //       // Only add the entry if the 'Code' is present
+  //       if (!string.IsNullOrWhiteSpace(raffleEntry.Code))
+  //       {
+  //         await IndexedDBService.AddItemAsync("MyDatabase", "RaffleEntry", raffleEntry);
+  //       }
+  //     }
+
+
+  //   }
+  //   catch (Exception ex)
+  //   {
+  //     Console.WriteLine($"Error processing Excel file: {ex.Message}");
+  //   }
+  //   finally
+  //   {
+  //     isLoading = false;
+  //   }
+  // }
+
+
+  //Batch test
+  // private async Task OnInputFileChange(InputFileChangeEventArgs e)
+  // {
+  //   var file = e.File;
+  //   if (file == null) return;
+
+  //   isLoading = true;
+  //   var maxFileSize = 1024 * 1024 * 1024; // 1 GB limit
+  //   MemoryStream memoryStream = new MemoryStream();
+  //   await file.OpenReadStream(maxFileSize).CopyToAsync(memoryStream);
+  //   memoryStream.Position = 0; // Reset the position of the MemoryStream to the beginning.
+
+  //   try
+  //   {
+  //     // Enable Streaming Mode
+  //     var config = new ExcelReaderConfiguration()
+  //       {
+  //         LeaveOpen = true, // Keeps the stream open after reading
+  //         FallbackEncoding = Encoding.UTF8 // Ensure encoding is correct
+  //       };
+
+  //     using var reader = ExcelReaderFactory.CreateReader(memoryStream, config);
+
+  //     var processedCodes = new HashSet<string>();
+  //     var batchEntries = new List<RaffleEntryBase>();
+  //     int batchSize = 1000; // Number of records per batch insert
+
+  //     bool isFirstRow = true;
+  //     while (reader.Read())
+  //     {
+  //       if (isFirstRow)
+  //       {
+  //         isFirstRow = false;
+  //         continue; // Skip header row
+  //       }
+
+  //       string code = reader.FieldCount > 0 ? reader.GetValue(0)?.ToString() : null;
+  //       string name = reader.FieldCount > 1 ? reader.GetValue(1)?.ToString() : null;
+  //       string phoneNumber = reader.FieldCount > 2 ? reader.GetValue(2)?.ToString() : null;
+
+  //       if (string.IsNullOrWhiteSpace(code)) continue; // Skip if code is empty
+
+  //       if (!processedCodes.Contains(code))
+  //       {
+  //         processedCodes.Add(code);
+  //         batchEntries.Add(new RaffleEntryBase
+  //           {
+  //             Code = code,
+  //             Name = name,
+  //             PhoneNumber = phoneNumber
+  //           });
+
+  //         // Check if it's time to flush the batch
+  //         if (batchEntries.Count >= batchSize)
+  //         {
+  //           await IndexedDBService.AddItemsInBatchAsync("MyDatabase", "RaffleEntry", batchEntries);
+  //           batchEntries.Clear(); // Reset the batch
+  //         }
+  //       }
+  //       else
+  //       {
+  //         duplicateCount++;
+  //       }
+  //     }
+
+  //     // Process any remaining entries
+  //     if (batchEntries.Count > 0)
+  //     {
+  //       await IndexedDBService.AddItemsInBatchAsync("MyDatabase", "RaffleEntry", batchEntries);
+  //     }
+  //   }
+  //   catch (Exception ex)
+  //   {
+  //     Console.WriteLine($"Error processing Excel file: {ex.Message}");
+  //   }
+  //   finally
+  //   {
+  //     isLoading = false;
+  //     if (duplicateCount > 0)
+  //     {
+  //       duplicateMessage = $"Detected and removed {duplicateCount} duplicate codes.";
+  //     }
+  //   }
+  // }
+
+
+  //promise.all (working well)
+  // private async Task OnInputFileChange(InputFileChangeEventArgs e)
+  // {
+  //   // Create and start a stopwatch
+  //   Stopwatch stopwatch = Stopwatch.StartNew();
+
+
+  //   var file = e.File;
+  //   if (file == null) return;
+
+  //   isLoading = true;
+  //   var maxFileSize = 1024 * 1024 * 1024; // 1 GB limit
+  //   MemoryStream memoryStream = new MemoryStream();
+  //   await file.OpenReadStream(maxFileSize).CopyToAsync(memoryStream);
+  //   memoryStream.Position = 0; // Reset the position of the MemoryStream to the beginning.
+
+  //   try
+  //   {
+  //     using var reader = ExcelReaderFactory.CreateReader(memoryStream);
+  //     var processedCodes = new HashSet<string>();
+  //     var batchEntries = new List<RaffleEntryBase>();
+  //     bool isFirstRow = true;
+
+  //     while (reader.Read())
+  //     {
+  //       if (isFirstRow) // Skip the header row.
+  //       {
+  //         isFirstRow = false;
+  //         continue;
+  //       }
+
+  //       string code = reader.FieldCount > 0 ? reader.GetValue(0)?.ToString() : null;
+  //       if (string.IsNullOrWhiteSpace(code)) continue; // Skip if code is empty or if the cell was null.
+
+  //       if (!processedCodes.Contains(code))
+  //       {
+  //         processedCodes.Add(code);
+  //         var name = reader.FieldCount > 1 ? reader.GetValue(1)?.ToString() : "";
+  //         var phoneNumber = reader.FieldCount > 2 ? reader.GetValue(2)?.ToString() : "";
+
+  //         batchEntries.Add(new RaffleEntryBase
+  //           {
+  //             Code = code,
+  //             Name = name,
+  //             PhoneNumber = phoneNumber
+  //           });
+  //       }
+  //       else
+  //       {
+  //         duplicateCount++;
+  //       }
+  //     }
+
+  //     if (batchEntries.Count > 0)
+  //     {
+  //       await IndexedDBService.AddItemsInBatchAsync("EntryDatabase", "RaffleEntry", batchEntries);
+  //     }
+  //   }
+  //   catch (Exception ex)
+  //   {
+  //     Console.WriteLine($"Error processing Excel file: {ex.Message}");
+  //   }
+  //   finally
+  //   {
+  //     isLoading = false;
+  //     duplicateMessage = $"Detected and removed {duplicateCount} duplicate codes.";
+  //     stopwatch.Stop();
+  //     Console.WriteLine($"Operation took {stopwatch.ElapsedMilliseconds} ms");
+  //   }
+  // }
+
+
+  //Batch test
+  private async Task OnInputFileChange(InputFileChangeEventArgs e)
+  {
+    Stopwatch stopwatch = Stopwatch.StartNew();
+
+    var file = e.File;
+    if (file == null) return;
+
+    isLoading = true;
+    var maxFileSize = 1024 * 1024 * 1024; // 1 GB limit
+    MemoryStream memoryStream = new MemoryStream();
+    await file.OpenReadStream(maxFileSize).CopyToAsync(memoryStream);
+    memoryStream.Position = 0; // Reset the position of the MemoryStream to the beginning.
+
+    try
+    {
+      // Enable Streaming Mode
+      var config = new ExcelReaderConfiguration()
+        {
+          LeaveOpen = true, // Keeps the stream open after reading
+          FallbackEncoding = Encoding.UTF8 // Ensure encoding is correct
+        };
+
+      using var reader = ExcelReaderFactory.CreateReader(memoryStream, config);
+
+      var processedCodes = new HashSet<string>();
+      var batchEntries = new List<RaffleEntryBase>();
+      int batchSize = 1000; // Number of records per batch insert
+
+      bool isFirstRow = true;
+      while (reader.Read())
+      {
+        if (isFirstRow)
+        {
+          isFirstRow = false;
+          continue; // Skip header row
+        }
+
+        string code = reader.FieldCount > 0 ? reader.GetValue(0)?.ToString() : null;
+        string name = reader.FieldCount > 1 ? reader.GetValue(1)?.ToString() : null;
+        string phoneNumber = reader.FieldCount > 2 ? reader.GetValue(2)?.ToString() : null;
+
+        if (string.IsNullOrWhiteSpace(code)) continue; // Skip if code is empty
+
+        if (!processedCodes.Contains(code))
+        {
+          processedCodes.Add(code);
+          batchEntries.Add(new RaffleEntryBase
+            {
+              Code = code,
+              Name = name,
+              PhoneNumber = phoneNumber
+            });
+
+          // Check if it's time to flush the batch
+          if (batchEntries.Count >= batchSize)
+          {
+            await IndexedDBService.AddItemsInBatchAsync("EntryDatabase", "RaffleEntry", batchEntries);
+            batchEntries.Clear(); // Reset the batch
+          }
+        }
+        else
+        {
+          duplicateCount++;
+        }
+      }
+
+      // Process any remaining entries
+      if (batchEntries.Count > 0)
+      {
+        await IndexedDBService.AddItemsInBatchAsync("EntryDatabase", "RaffleEntry", batchEntries);
+      }
+    }
+    catch (Exception ex)
+    {
+      Console.WriteLine($"Error processing Excel file: {ex.Message}");
+    }
+    finally
+    {
+      isLoading = false;
+      if (duplicateCount > 0)
+      {
+        duplicateMessage = $"Detected and removed {duplicateCount} duplicate codes.";
+
+      }
+      stopwatch.Stop();
+      Console.WriteLine($"Operation took {stopwatch.ElapsedMilliseconds} ms");
+    }
+  }
+
+  private async Task ClearStoreAsync()
+  {
+    try
+    {
+      var result = await IndexedDBService.ClearStoreAsync("EntryDatabase", "RaffleEntry");
+      Console.WriteLine(result);
+
+      StateHasChanged();
+      _isStoreCleared = true;
+      if (_isStoreCleared == true)
+      {
+        storeClearedMessage = "All records has been cleared";
+      }
+      StateHasChanged();
+      _isStoreCleared = false;
+      await Task.Delay(3000);
+
+      // Clear the message and update UI
+      storeClearedMessage = "";
+      StateHasChanged();
+    }
+    catch (Exception ex)
+    {
+      Console.Error.WriteLine("Failed to clear store: " + ex.Message);
+      storeClearedMessage = "Failed to clear all records";
+      StateHasChanged(); // Update UI to show error message
+
+      // Optionally clear the message after a delay
+      await Task.Delay(3000);
+      storeClearedMessage = "";
+      StateHasChanged();
+    }
+  }
+
+  private async Task DeleteDatabaseAsync()
+  {
+    try
+    {
+      var result = await IndexedDBService.DeleteDatabaseAsync("EntryDatabase");
+      Console.WriteLine(result);
+      StateHasChanged();
+      _isDatabaseDeleted = true;
+      StateHasChanged();
+      _isDatabaseDeleted = false;
+      await JSRuntime.InvokeVoidAsync("location.reload");
+    }
+    catch (Exception ex)
+    {
+      Console.Error.WriteLine("Failed to delete database: " + ex.Message);
+    }
+  }
+}
+

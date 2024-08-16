@@ -1,0 +1,48 @@
+﻿@page "/code-reveal"
+
+<h3>Code Reveal Effect</h3>
+
+<div class="code-display">@displayedCode</div>
+
+<button @onclick="RevealCode" disabled="@isRevealing">Reveal Code</button>
+
+@code {
+  private string actualCode = "ABC123XYZ";
+  private string displayedCode = "";
+  private bool isRevealing = false;
+  private Random random = new Random();
+  private const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
+  private async Task RevealCode()
+  {
+    if (isRevealing) return;
+
+    isRevealing = true;
+    displayedCode = new string('-', actualCode.Length);
+
+    for (int i = 0; i < actualCode.Length; i++)
+    {
+      for (int j = 0; j < 10; j++) // Cycle through 10 random characters
+      {
+        displayedCode = displayedCode.Remove(i, 1).Insert(i, chars[random.Next(chars.Length)].ToString());
+        StateHasChanged();
+        await Task.Delay(50);
+      }
+
+      displayedCode = displayedCode.Remove(i, 1).Insert(i, actualCode[i].ToString());
+      StateHasChanged();
+      await Task.Delay(100);
+    }
+
+    isRevealing = false;
+  }
+}
+
+<style>
+  .code-display {
+    font-family: monospace;
+    font-size: 24px;
+    letter-spacing: 4px;
+    margin: 20px 0;
+  }
+</style>

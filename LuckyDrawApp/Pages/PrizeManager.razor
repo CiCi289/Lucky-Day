@@ -1,0 +1,134 @@
+﻿@page "/prize-manager"
+@using LuckyDrawApp.Models
+@using LuckyDrawApp.Services
+@inject IJSRuntime JSRuntime
+@inject IndexedDBService IndexedDBService
+@inject NavigationManager navigationManager
+
+<div class="container mt-3">
+
+  <h3>Manage Prizes</h3>
+  <div class="container mt-3">
+    <div class="row">
+      <div class="col-md-8">
+        <div class="input-group mb-3">
+          <input type="text" class="form-control" placeholder="Enter new prize name" @bind="newPrizeName">
+          <div class="input-group-append">
+            <button class="btn btn-primary" @onclick="AddNewPrize">Add Prize</button>
+          </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(storeClearedMessage))
+        {
+          <div class="alert alert-info">@storeClearedMessage</div>
+        }
+        <div class="d-flex col-md-12 py-3">
+          <button @onclick="ClearStoreAsync" class="btn btn-danger">Clear All Entry Records</button>
+        </div>
+
+        <div class="d-flex col-md-12 py-3">
+          <button @onclick="DeleteDatabaseAsync" class="btn btn-danger">Delete Database</button>
+        </div>
+
+        <div class="d-flex col-md-12 py-3">
+          <button type="button" class="btn btn-dark" href="" @onclick="@(()=>navigationManager.NavigateTo("/"))">Back to Dashboard</button>
+        </div>
+
+      </div>
+      <div class="col-md-4">
+        <h4>List of Prizes</h4>
+        <ul class="list-group">
+          @foreach (var prize in _prizes)
+          {
+            <li class="list-group-item">@prize.Name</li>
+          }
+        </ul>
+      </div>
+    </div>
+
+
+  </div>
+</div>
+
+@code {
+
+
+  private string newPrizeName;
+  private List<PrizeBase> _prizes = new List<PrizeBase>();
+  private bool _isStoreCleared = false;
+  private string storeClearedMessage = "";
+
+  private bool _isDatabaseDeleted = false;
+
+  protected override async Task OnInitializedAsync()
+  {
+    // var db = await IndexedDBService.OpenDb("MyDatabase");
+    await IndexedDBService.CreatePrizeDbAsync("PrizeDatabase");
+    _prizes = (await IndexedDBService.GetAllItemsAsync<List<PrizeBase>>("PrizeDatabase", "Prize"));
+  }
+  private async Task AddNewPrize()
+  {
+    if (!string.IsNullOrWhiteSpace(newPrizeName) && !_prizes.Any(p => p.Name.Equals(newPrizeName, StringComparison.OrdinalIgnoreCase)))
+    {
+      var newPrize = new PrizeBase { Name = newPrizeName };
+
+      _prizes.Add(newPrize);
+
+      await IndexedDBService.AddItemAsync("PrizeDatabase", "Prize", newPrize);
+      newPrizeName = "";
+      StateHasChanged();
+    }
+  }
+
+  private async Task ClearStoreAsync()
+  {
+    try
+    {
+      var result = await IndexedDBService.ClearStoreAsync("PrizeDatabase", "Prize");
+      Console.WriteLine(result);
+
+      StateHasChanged();
+      _isStoreCleared = true;
+      if (_isStoreCleared == true)
+      {
+        storeClearedMessage = "All records has been cleared";
+      }
+      StateHasChanged();
+      _isStoreCleared = false;
+      await Task.Delay(3000);
+
+      // Clear the message and update UI
+      storeClearedMessage = "";
+      StateHasChanged();
+    }
+    catch (Exception ex)
+    {
+      Console.Error.WriteLine("Failed to clear store: " + ex.Message);
+      storeClearedMessage = "Failed to clear all records";
+      StateHasChanged(); // Update UI to show error message
+
+      // Optionally clear the message after a delay
+      await Task.Delay(3000);
+      storeClearedMessage = "";
+      StateHasChanged();
+    }
+  }
+
+  private async Task DeleteDatabaseAsync()
+  {
+    try
+    {
+      var result = await IndexedDBService.DeleteDatabaseAsync("PrizeDatabase");
+      Console.WriteLine(result);
+      StateHasChanged();
+      _isDatabaseDeleted = true;
+      StateHasChanged();
+      _isDatabaseDeleted = false;
+      await JSRuntime.InvokeVoidAsync("location.reload");
+    }
+    catch (Exception ex)
+    {
+      Console.Error.WriteLine("Failed to delete database: " + ex.Message);
+    }
+  }
+}

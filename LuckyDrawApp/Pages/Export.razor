@@ -1,0 +1,41 @@
+﻿
+@page "/export"
+@using LuckyDrawApp.Models
+@using System.Text
+@using LuckyDrawApp.Services
+
+@inject IndexedDBService IndexedDBService
+
+@code {
+  private List<Prize> _prizes;
+
+  private string _exportedData;
+ 
+  protected override async Task OnInitializedAsync()
+  {
+    await IndexedDBService.CreatePrizeDbAsync("PrizeDatabase");
+    _prizes = (await IndexedDBService.GetAllItemsAsync<List<Prize>>("PrizeDatabase", "Prize")) ?? new List<Prize>();
+    ExportWinnersToText();
+  }
+
+  private void ExportWinnersToText()
+  {
+    var csvBuilder = new StringBuilder();
+    csvBuilder.AppendLine("Prize,Name,Code,PhoneNumber");
+
+    foreach (var prize in _prizes)
+    {
+      foreach (var winner in prize.Winners)
+      {
+        csvBuilder.AppendLine($"{prize.Name},{winner.Name},{winner.Code},{winner.PhoneNumber}");
+      }
+    }
+
+    _exportedData = csvBuilder.ToString();
+  }
+}
+
+<div>
+  <h1>Winners' List</h1>
+  <textarea rows="10" cols="50" readonly>@_exportedData</textarea>
+</div>

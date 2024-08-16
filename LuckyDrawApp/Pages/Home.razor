@@ -1,0 +1,76 @@
+﻿@page "/"
+
+@inject NavigationManager navigationManager
+
+<div class="container">
+  <div class="row">
+    <div class="col-md-12">
+
+      <PageTitle>Lucky Draw App</PageTitle>
+
+      <h1 class="text-center main-title">Lucky Draw Dashboard</h1>
+
+      <h2 class="text-center white-text">Welcome to Lucky Draw App!</h2>
+
+    </div>
+    <div class="d-flex justify-content-center col-md-12 py-3">
+      <button type="button" class="btn golden-button py-3 text-center" href="upload-batch" @onclick="@(()=>navigationManager.NavigateTo("/upload-batch"))">Excel Upload For Participants</button>
+    </div>
+
+    <div class="d-flex justify-content-center col-md-12 py-3">
+      <button type="button" class="btn golden-button py-3 text-center" href="prize-manager" @onclick="@(()=>navigationManager.NavigateTo("/prize-manager"))">Add Prizes</button>
+    </div>
+
+    <div class="d-flex justify-content-center col-md-12 py-3">
+      <button type="button" class="btn golden-button py-3 text-center" href="raffle" @onclick="@(()=>navigationManager.NavigateTo("/raffle"))">Start Lucky Draw</button>
+    </div>
+
+    <div class="d-flex justify-content-center col-md-12 py-3">
+      <button type="button" class="btn golden-button py-3 text-center" href="export" @onclick="@(()=>navigationManager.NavigateTo("/export"))">Get Winners List</button>
+    </div>
+  </div>
+</div>
+
+<style>
+  .main-title {
+    font-family: 'Open Sans';
+    font-size: 80px;
+    color: floralwhite;
+    font-weight: 900;
+    text-shadow: 1px 8px 1px rgba(0, 0, 0, 0.1);
+    letter-spacing: 8px;
+    margin: 20px 0;
+  }
+
+  .white-text{
+      color: floralwhite;
+  }
+
+  .golden-button {
+    background-image: -webkit-gradient(linear, left bottom, left top, from(#f4ba2e), to(#fea036));
+    background-image: -o-linear-gradient(bottom, #f4ba2e 0%, #fea036 100%);
+    background-image: linear-gradient(0deg, #f4ba2e 0%, #fea036 100%);
+    border-style: solid;
+    border-width: 1px;
+    border-color: #fea036;
+    border-radius: 5px;
+    -webkit-box-shadow: 0px 3px 2px 0px rgba(32, 29, 30, 0.25);
+    box-shadow: 0px 3px 2px 0px rgba(32, 29, 30, 0.25);
+    padding: 5px 15px;
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 26px;
+    color: #B24A00;
+    display: inline-block;
+    cursor: pointer;
+    width: auto;
+    height: auto;
+  }
+
+    .golden-button:hover {
+      background: linear-gradient(45deg, #FFC107, #fea036);
+      color: floralwhite;
+      font-weight: 700;
+      box-shadow: 0px 0px 10px rgba(255, 215, 0, 0.5);
+    }
+</style>

@@ -1,0 +1,21 @@
+﻿@page "/counter"
+@using BlafettisLib
+<PageTitle>Counter</PageTitle>
+
+<h1>Counter</h1>
+
+<p role="status">Current count: @currentCount</p>
+
+<button class="btn btn-primary" @onclick="IncrementCount">Click me
+  <Blafettis @ref="blafettis" />
+</button>
+
+@code {
+    private int currentCount = 0;
+  protected Blafettis blafettis;
+    private void IncrementCount()
+    {
+        currentCount++;
+    blafettis.RaiseConfetti();
+    }
+}

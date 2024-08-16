@@ -1,0 +1,348 @@
+﻿@page "/raffle"
+@using LuckyDrawApp.Models
+@using LuckyDrawApp.Services
+@using BlafettisLib
+@inject IJSRuntime JSRuntime
+@inject IndexedDBService IndexedDBService
+@inject NavigationManager navigationManager
+
+
+<div class=" container mt-3">
+  <div class="row">
+    <div class="col-md-12">
+      <h1 contenteditable="true" spellcheck="false" class="main-title white-text text-center  mb-4">
+        Lucky Draw Event
+      </h1>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-md-8">
+      <div class="mt-4">
+        <h1 class="text-center white-text">
+          Current Prize: @(_currentPrize ?? "None")
+        </h1>
+        <select class="form-control" @onchange="ChangeCurrentPrize">
+          <option value="">Select a Prize...</option>
+          @foreach (var prize in _prizes)
+          {
+            <option value="@prize.Name">@prize.Name</option>
+          }
+        </select>
+      </div>
+      <div class="mt-4">
+        @if (_isDrawing)
+        {
+          <div class="code-display text-center py-3 mb-3 gold-text">@displayedCode</div>
+        }
+        else if (_currentWinner != null)
+        {
+          <div class="p-3">
+
+            <h4 class="text-center gold-text">Congratulations!!!</h4>
+
+            <h1 class="code-display text-center gold-text">@displayedCode</h1>
+
+            @if (!string.IsNullOrWhiteSpace(_currentWinner.Name))
+            {
+              <h3 class="alert-heading text-center white-text">@_currentWinner.Name</h3>
+            }
+            @if (!string.IsNullOrWhiteSpace(_currentWinner.PhoneNumber))
+            {
+              <h3 class="alert-heading text-center white-text">@_currentWinner.PhoneNumber</h3>
+            }
+
+          </div>
+        }
+      </div>
+      <div class="mt-4 text-center">
+        <button class="btn golden-button py-3 text-center" @onclick="DrawWinner" disabled="@_isDrawing">
+          Draw Winner
+          <Blafettis @ref="blafettis"
+                     angle="@angle"
+                     spread="@spread"
+                     startVelocity="@startVelocity"
+                     elementCount="@elementCount"
+                     width="@widthCss"
+                     height="@heightCss"
+                     colors="@colors"
+                     duration="@duration"
+                     stagger="@stagger"
+                     dragFriction="@dragFrictionCooked" />
+        </button>
+      </div>
+    </div>
+
+
+    <div class="col-md-4">
+      <h4>List of Prizes and Winners</h4>
+      <ul class="list-group scrollable-list">
+        @foreach (var prize in _prizes)
+        {
+          <li class="list-group-item">
+            @prize.Name
+            @* <button class="btn btn-info btn-sm" @onclick="() => SetCurrentPrize(prize.Name)">Select for Drawing</button> *@
+            - Winners:
+            <ol>
+              @foreach (var winner in prize.Winners)
+              {
+                <li>@winner.Name (@winner.Code)</li>
+              }
+            </ol>
+          </li>
+        }
+      </ul>
+    </div>
+  </div>
+</div>
+
+<style>
+
+  .code-display {
+    font-family: monospace;
+    font-size: calc(4vw + 1em);
+    letter-spacing: 0.5vw;
+    margin: 20px 0;
+    font-weight: 700;
+  }
+
+  .white-text {
+    color: floralwhite;
+    text-shadow: 0px 3px 2px 0px rgba(32, 29, 30, 0.25);
+  }
+
+  .gold-text {
+    color: #f4ba2e;
+    text-shadow: 0px 3px 2px 0px rgba(32, 29, 30, 0.25);
+  }
+
+  .main-title {
+    font-size: calc(6vw + 2em);
+  }
+
+
+  .main-title {
+    font-family: 'Open Sans';
+    font-size: 80px;
+    color: floralwhite;
+    font-weight: 900;
+    text-shadow: 1px 8px 1px rgba(0, 0, 0, 0.1);
+    letter-spacing: 8px;
+    margin: 20px 0;
+  }
+
+  .golden-button {
+    background-image: -webkit-gradient(linear, left bottom, left top, from(#f4ba2e), to(#fea036));
+    background-image: -o-linear-gradient(bottom, #f4ba2e 0%, #fea036 100%);
+    background-image: linear-gradient(0deg, #f4ba2e 0%, #fea036 100%);
+    border-style: solid;
+    border-width: 1px;
+    border-color: #fea036;
+    border-radius: 5px;
+    -webkit-box-shadow: 0px 3px 2px 0px rgba(32, 29, 30, 0.25);
+    box-shadow: 0px 3px 2px 0px rgba(32, 29, 30, 0.25);
+    padding: 5px 15px;
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 26px;
+    color: #B24A00;
+    display: inline-block;
+    cursor: pointer;
+    width: auto;
+    height: auto;
+  }
+
+    .golden-button:hover {
+      background: linear-gradient(45deg, #FFC107, #fea036);
+      color: floralwhite;
+      font-weight: 700;
+      box-shadow: 0px 0px 10px rgba(255, 215, 0, 0.5);
+    }
+
+  .scrollable-list {
+    max-height: 60vh; /* Adjust this value to set the height as a percentage of the viewport height */
+    overflow-y: auto;
+    border: 1px solid #ccc;
+  }
+
+</style>
+
+
+@code {
+  //raffling rolling animation
+  private string actualCode => _currentWinner?.Code ?? "";
+  private string displayedCode = "";
+  private bool isRevealing = false;
+  private Random random = new Random();
+  private const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
+  //blafettis confetti animation
+  protected Blafettis blafettis;
+  private double angle { get; set; } = 90;
+  private double spread { get; set; } = 75;
+  private double startVelocity { get; set; } = 45;
+  private int elementCount { get; set; } = 100;
+  private int width { get; set; } = 8;
+  private int height { get; set; } = 10;
+  private string widthCss => $"{width}px";
+  private string heightCss => $"{height}px";
+  private string[] colors { get; set; } = BlafettisLibHelper.defaultColors;
+  private long duration { get; set; } = 3000;
+  private double stagger { get; set; } = 3;
+  private double dragFriction { get; set; } = 10;
+  private double dragFrictionCooked => dragFriction / 100;
+
+
+  //raffle ui
+  private string newPrizeName;
+  private string _currentPrize;
+  private RaffleEntry _currentWinner;
+  private List<RaffleEntry> _entries = new List<RaffleEntry>();
+  private List<Prize> _prizes = new List<Prize>();
+  private bool _isDrawing = false;
+
+  protected override async Task OnInitializedAsync()
+  {
+    //load up stored data when start
+
+    await IndexedDBService.CreateEntryDbAsync("EntryDatabase");
+    await IndexedDBService.CreatePrizeDbAsync("PrizeDatabase");
+
+
+    // _entries = (await IndexedDBService.GetAllItemsAsync<List<RaffleEntry>>("MyDatabase", "RaffleEntry"));
+    // Console.WriteLine("Finished getting entry data");
+
+    _prizes = (await IndexedDBService.GetAllItemsAsync<List<Prize>>("PrizeDatabase", "Prize"));
+  }
+
+  //Choose current prize to display
+  private void SetCurrentPrize(string prizeName)
+  {
+    _currentPrize = prizeName;
+  }
+
+  //raffle function
+  //Flow
+  //1. Check if prize is selected / else? return nothing
+  //2. Get available entries (aka. ones with IsUsed is false) / no avail entries? return nothing
+  //3. Pick random winner from Available Entries & Trigger raffling animation meanwhile
+  //4. After pick, Set Winner's IsUsed status to true
+  //5. Add winner in Prize's Winners List
+  //6. Save winner in Prize's Winners List in DB
+  //7. Save/Update that Winner's IsUsed status as true in DB
+
+
+
+  // private async Task DrawWinner()
+  // {
+  //   if (string.IsNullOrEmpty(_currentPrize)) return;
+
+  //   _isDrawing = true;
+  //   _currentWinner = null;
+  //   StateHasChanged();
+
+  //   var availableEntries = _entries.Where(e => !e.IsUsed).ToList();
+
+  //   if (availableEntries.Count == 0)
+  //   {
+  //     _isDrawing = false;
+  //     StateHasChanged();
+  //     return;
+  //   };
+
+  //   var winner = availableEntries[random.Next(availableEntries.Count)];
+  //   winner.IsUsed = true;
+
+  //   var prize = _prizes.FirstOrDefault(p => p.Name == _currentPrize);
+  //   if (prize != null)
+  //   {
+
+  //     _currentWinner = winner;
+  //     await RevealCode();
+  //     // currentDisplay = _currentWinner.Code;
+  //     prize.Winners.Add(winner);
+
+  //     blafettis.RaiseConfetti();
+
+  //     // Update this specific prize in IndexedDB
+  //     await IndexedDBService.UpdateItemAsync("MyDatabase", "Prize", prize);
+  //   }
+  //   await IndexedDBService.UpdateItemAsync("MyDatabase", "RaffleEntry", winner);
+
+  //   _isDrawing = false;
+
+  //   StateHasChanged();
+  // }
+
+
+
+  private async Task DrawWinner()
+  {
+    if (string.IsNullOrEmpty(_currentPrize)) return;
+
+    _isDrawing = true;
+    _currentWinner = null;
+    StateHasChanged();
+
+    var winner = await IndexedDBService.GetRandomItemAsync<RaffleEntry>("EntryDatabase", "RaffleEntry");
+
+    if (winner == null)
+    {
+      _isDrawing = false;
+      StateHasChanged();
+      return;
+    }
+    winner.IsUsed = true;
+
+    var prize = _prizes.FirstOrDefault(p => p.Name == _currentPrize);
+    if (prize != null)
+    {
+
+      _currentWinner = winner;
+      await RevealCode();
+      // currentDisplay = _currentWinner.Code;
+      prize.Winners.Add(winner);
+
+      blafettis.RaiseConfetti();
+
+      // Update this specific prize in IndexedDB
+      await IndexedDBService.UpdateItemAsync("PrizeDatabase", "Prize", prize);
+    }
+    await IndexedDBService.UpdateItemAsync("EntryDatabase", "RaffleEntry", winner);
+
+    _isDrawing = false;
+
+    StateHasChanged();
+  }
+
+  private void ChangeCurrentPrize(ChangeEventArgs e)
+  {
+    _currentPrize = e.Value?.ToString();
+  }
+
+
+  private async Task RevealCode()
+  {
+    if (isRevealing) return;
+
+    isRevealing = true;
+    displayedCode = new string('-', actualCode.Length);
+
+    for (int i = 0; i < actualCode.Length; i++)
+    {
+      for (int j = 0; j < 10; j++) // Cycle through 10 random characters
+      {
+        displayedCode = displayedCode.Remove(i, 1).Insert(i, chars[random.Next(chars.Length)].ToString());
+        StateHasChanged();
+        await Task.Delay(50);
+      }
+
+      displayedCode = displayedCode.Remove(i, 1).Insert(i, actualCode[i].ToString());
+      StateHasChanged();
+      await Task.Delay(100);
+    }
+
+    isRevealing = false;
+  }
+}
+

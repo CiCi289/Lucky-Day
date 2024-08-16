@@ -1,0 +1,96 @@
+﻿ @page "/testinterop"
+@using LuckyDrawApp.Models
+@using LuckyDrawApp.Services
+@inject IndexedDBService IndexedDBService
+
+<h3>Testinterop Example</h3>
+<button @onclick="OpenTestDB">Create Database</button>
+<button @onclick="AddItem">Add Item</button>
+<button @onclick="GetItem">Get Item</button>
+
+<button @onclick="GetItemWithInternalKey">Get Item With Internal Key Directly</button>
+
+<button @onclick="GetAllItemsInternal">Get All Items with Internal Key Directly</button>
+
+
+@code {
+  private List<dynamic> items = new();
+
+  private async Task OpenTestDB()
+  {
+    await IndexedDBService.CreateEntryDbAsync("MyTestDB");
+    await IndexedDBService.CreateEntryDbAsync("MyDatabase");
+    Console.WriteLine("Database created/opened successfully.");
+  }
+
+  private async Task AddItem()
+  {
+    var item = new PrizeBase
+      {
+        Name = "BarNyar"
+      };
+
+    await IndexedDBService.AddItemAsync<PrizeBase>("MyTestDB", "Prize", item);
+    Console.WriteLine("Item added successfully.");
+
+  }
+  //after uploading
+  //delete all exsit
+  //add sample 1, 
+
+  private async Task GetItemWithInternalKey()
+  {
+    try
+    {
+      var ab = await IndexedDBService.GetItemByInternalKeyAsync<RaffleEntry>("MyDatabase", "RaffleEntry", 599999);
+      
+        Console.WriteLine($"{ab.Id}, {ab.Code}, {ab.Name}");
+      
+    }
+    catch (Exception e)
+    {
+      Console.WriteLine(e.Message);
+    }
+  }
+
+
+
+  private async Task GetItem()
+  {
+    try
+    {
+      var a = await IndexedDBService.GetItemAsync<PrizeBase>("MyTestDB", "Prize", 1);
+      if (a != null)
+      {
+        Console.WriteLine($"{a}");
+      }
+    }
+    catch (Exception e)
+    {
+      Console.WriteLine(e.Message);
+    }
+  }
+
+  private async Task GetAllItemsInternal()
+  {
+    try
+    {
+      var items = await IndexedDBService.GetAllItemsWithInternalKeysAsync<Prize>("MyDatabase", "Prize");
+      if (items != null && items.Any())
+      {
+        foreach (var item in items)
+        {
+          Console.WriteLine($"Internal Key: {item.Key}, Prize: {item.Value.Name}");
+        }
+      }
+      else
+      {
+        Console.WriteLine("No items found");
+      }
+    }
+    catch (Exception e)
+    {
+      Console.WriteLine($"Error: {e.Message}");
+    }
+  }
+}
