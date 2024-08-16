@@ -221,34 +221,45 @@ window.indexedDBInterop = {
                 const db = event.target.result;
                 const transaction = db.transaction(storeName, "readonly");
                 const store = transaction.objectStore(storeName);
-                const request = store.count();
-                console.log(request);
+                const countRequest = store.count();
 
-                request.onsuccess = function () {
-                    const count = request.result;
+                countRequest.onsuccess = function () {
+                    const count = countRequest.result;
                     const randomIndex = Math.floor(Math.random() * count);
-                    let advanced = false;
-                    console.log(randomIndex);
+                    console.log("Random index:", randomIndex);
 
-                    store.openCursor().onsuccess = function (event) {
-                        const cursor = event.target.result;
+                    const cursorRequest = store.openCursor();
+
+                    cursorRequest.onsuccess = function (event) {
+                        let cursor = event.target.result;
                         if (!cursor) {
-                            resolve(null);  // No more entries
+                            resolve(null);  // No entries in the store
                             return;
                         }
-                        if (!advanced) {
+
+                        if (randomIndex > 0) {  // Only call advance if randomIndex is greater than 0
                             cursor.advance(randomIndex);
-                            advanced = true;
-                            return;
-                        }
-                        if (!cursor.value.isUsed) {
-                            console.log(cursor.value);
-                            resolve(cursor.value);
                         } else {
-                            cursor.continue();  // Continue until an unused entry is found
+                            // Handle the first item (randomIndex == 0) immediately
+                            processCursor(cursor);
                         }
                     };
+
+                    // Function to process cursor based on its "isUsed" property
+                    function processCursor(cursor) {
+                        if (!cursor.value.isUsed) {
+                            console.log("Selected value:", cursor.value);
+                            resolve(cursor.value);
+                        } else {
+                            cursor.continue();  // Skip used entries and find the next unused entry
+                        }
+                    }
+
+                    cursorRequest.onerror = function () {
+                        resolve(null);  // Handle cursor errors or no valid cursor found
+                    };
                 };
+
                 transaction.onerror = function (event) {
                     reject('Error traversing the store: ' + event.target.error);
                 };
@@ -259,6 +270,7 @@ window.indexedDBInterop = {
             };
         });
     },
+
 
 
     updateItem: function (dbName, storeName, item) {

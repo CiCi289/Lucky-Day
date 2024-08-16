@@ -7,36 +7,37 @@
 
 <div class="container mt-3">
 
-  <h3>Manage Prizes</h3>
+  <h1 class="white-text">Manage Prizes</h1>
   <div class="container mt-3">
     <div class="row">
-      <div class="col-md-8">
+      <div class="col-md-8 justify-content-end">
         <div class="input-group mb-3">
           <input type="text" class="form-control" placeholder="Enter new prize name" @bind="newPrizeName">
           <div class="input-group-append">
-            <button class="btn btn-primary" @onclick="AddNewPrize">Add Prize</button>
+            <button class="btn golden-button" @onclick="AddNewPrize">Add Prize</button>
           </div>
         </div>
 
         @if (!string.IsNullOrEmpty(storeClearedMessage))
         {
-          <div class="alert alert-info">@storeClearedMessage</div>
+          <div class="alert alert-success mb-4">@storeClearedMessage</div>
         }
-        <div class="d-flex col-md-12 py-3">
-          <button @onclick="ClearStoreAsync" class="btn btn-danger">Clear All Entry Records</button>
+
+        <div class="mb-3">
+          <button @onclick="ClearStoreAsync" class="btn btn-warning">Clear All Entry Records</button>
         </div>
 
-        <div class="d-flex col-md-12 py-3">
+        <div class="mb-3">
           <button @onclick="DeleteDatabaseAsync" class="btn btn-danger">Delete Database</button>
         </div>
 
-        <div class="d-flex col-md-12 py-3">
-          <button type="button" class="btn btn-dark" href="" @onclick="@(()=>navigationManager.NavigateTo("/"))">Back to Dashboard</button>
+        <div>
+          <button type="button" class="btn btn-secondary" @onclick="@(()=>navigationManager.NavigateTo("/"))">Back to Dashboard</button>
         </div>
-
       </div>
+
       <div class="col-md-4">
-        <h4>List of Prizes</h4>
+        <h4 class="gold-text">List of Prizes</h4>
         <ul class="list-group">
           @foreach (var prize in _prizes)
           {
@@ -49,6 +50,46 @@
 
   </div>
 </div>
+
+<style>
+  .golden-button {
+    background-image: -webkit-gradient(linear, left bottom, left top, from(#f4ba2e), to(#fea036));
+    background-image: -o-linear-gradient(bottom, #f4ba2e 0%, #fea036 100%);
+    background-image: linear-gradient(0deg, #f4ba2e 0%, #fea036 100%);
+    border-style: solid;
+    border-width: 1px;
+    border-color: #fea036;
+    border-radius: 5px;
+    -webkit-box-shadow: 0px 3px 2px 0px rgba(32, 29, 30, 0.25);
+    box-shadow: 0px 3px 2px 0px rgba(32, 29, 30, 0.25);
+    padding: 5px 15px;
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 26px;
+    color: #B24A00;
+    display: inline-block;
+    cursor: pointer;
+    width: auto;
+    height: auto;
+  }
+
+    .golden-button:hover {
+      background: linear-gradient(45deg, #FFC107, #fea036);
+      color: floralwhite;
+      font-weight: 700;
+      box-shadow: 0px 0px 10px rgba(255, 215, 0, 0.5);
+    }
+
+  .white-text {
+    color: floralwhite;
+  }
+
+  .gold-text {
+    color: #ffd700;
+    text-shadow: 0px 3px 2px 0px rgba(32, 29, 30, 0.25);
+  }
+</style>
+
 
 @code {
 
@@ -91,6 +132,7 @@
       _isStoreCleared = true;
       if (_isStoreCleared == true)
       {
+        _prizes.Clear();
         storeClearedMessage = "All records has been cleared";
       }
       StateHasChanged();
@@ -122,6 +164,8 @@
       Console.WriteLine(result);
       StateHasChanged();
       _isDatabaseDeleted = true;
+
+      _prizes.Clear();
       StateHasChanged();
       _isDatabaseDeleted = false;
       await JSRuntime.InvokeVoidAsync("location.reload");
@@ -129,6 +173,8 @@
     catch (Exception ex)
     {
       Console.Error.WriteLine("Failed to delete database: " + ex.Message);
+      _prizes.Clear();
+      await JSRuntime.InvokeVoidAsync("location.reload");
     }
   }
 }

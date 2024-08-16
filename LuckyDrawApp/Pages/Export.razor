@@ -5,6 +5,7 @@
 @using LuckyDrawApp.Services
 
 @inject IndexedDBService IndexedDBService
+@inject NavigationManager navigationManager
 
 @code {
   private List<Prize> _prizes;
@@ -35,7 +36,21 @@
   }
 }
 
-<div>
-  <h1>Winners' List</h1>
-  <textarea rows="10" cols="50" readonly>@_exportedData</textarea>
+
+<div class=" container mt-3">
+  <div>
+    <h1 class="white-text">Winners' List</h1>
+    <textarea rows="10" cols="50" readonly>@_exportedData</textarea>
+  </div>
+
+  <div>
+    <button type="button" class="btn btn-secondary" @onclick="@(()=>navigationManager.NavigateTo("/"))">Back to Dashboard</button>
+  </div>
 </div>
+
+
+<style>
+    .text-white{
+        color:floralwhite;
+    }
+</style>
