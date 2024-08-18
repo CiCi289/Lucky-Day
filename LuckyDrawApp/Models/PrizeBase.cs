@@ -3,7 +3,7 @@
   public class PrizeBase
   {
     public string Name { get; set; }
-    public List<RaffleEntryBase>? Winners { get; set; } = new List<RaffleEntryBase>();
+    public List<RaffleEntry>? Winners { get; set; } = new List<RaffleEntry>();
   }
 
 }

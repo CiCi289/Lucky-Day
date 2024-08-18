@@ -1,4 +1,5 @@
 
+
 using LuckyDrawApp;
 using LuckyDrawApp.Models;
 using LuckyDrawApp.Services;
@@ -31,8 +32,8 @@ builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.
 //{
 //  options.UseDatabase(IndexedDbConfigService.GetDatabaseModel());
 //});
-
 builder.Services.AddScoped<IndexedDBService>();
+
 
 await builder.Build().RunAsync();
 

@@ -23,9 +23,9 @@
           <div class="alert alert-success mb-4">@storeClearedMessage</div>
         }
 
-        <div class="mb-3">
+        @* <div class="mb-3">
           <button @onclick="ClearStoreAsync" class="btn btn-warning">Clear All Entry Records</button>
-        </div>
+        </div> *@
 
         <div class="mb-3">
           <button @onclick="DeleteDatabaseAsync" class="btn btn-danger">Delete Database</button>
@@ -121,40 +121,40 @@
     }
   }
 
-  private async Task ClearStoreAsync()
-  {
-    try
-    {
-      var result = await IndexedDBService.ClearStoreAsync("PrizeDatabase", "Prize");
-      Console.WriteLine(result);
+  // private async Task ClearStoreAsync()
+  // {
+  //   try
+  //   {
+  //     var result = await IndexedDBService.ClearStoreAsync("PrizeDatabase", "Prize");
+  //     Console.WriteLine(result);
 
-      StateHasChanged();
-      _isStoreCleared = true;
-      if (_isStoreCleared == true)
-      {
-        _prizes.Clear();
-        storeClearedMessage = "All records has been cleared";
-      }
-      StateHasChanged();
-      _isStoreCleared = false;
-      await Task.Delay(3000);
+  //     StateHasChanged();
+  //     _isStoreCleared = true;
+  //     if (_isStoreCleared == true)
+  //     {
+  //       _prizes.Clear();
+  //       storeClearedMessage = "All records has been cleared";
+  //     }
+  //     StateHasChanged();
+  //     _isStoreCleared = false;
+  //     await Task.Delay(3000);
 
-      // Clear the message and update UI
-      storeClearedMessage = "";
-      StateHasChanged();
-    }
-    catch (Exception ex)
-    {
-      Console.Error.WriteLine("Failed to clear store: " + ex.Message);
-      storeClearedMessage = "Failed to clear all records";
-      StateHasChanged(); // Update UI to show error message
+  //     // Clear the message and update UI
+  //     storeClearedMessage = "";
+  //     StateHasChanged();
+  //   }
+  //   catch (Exception ex)
+  //   {
+  //     Console.Error.WriteLine("Failed to clear store: " + ex.Message);
+  //     storeClearedMessage = "Failed to clear all records";
+  //     StateHasChanged(); // Update UI to show error message
 
-      // Optionally clear the message after a delay
-      await Task.Delay(3000);
-      storeClearedMessage = "";
-      StateHasChanged();
-    }
-  }
+  //     // Optionally clear the message after a delay
+  //     await Task.Delay(3000);
+  //     storeClearedMessage = "";
+  //     StateHasChanged();
+  //   }
+  // }
 
   private async Task DeleteDatabaseAsync()
   {

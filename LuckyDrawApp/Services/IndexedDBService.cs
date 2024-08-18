@@ -69,9 +69,9 @@ namespace LuckyDrawApp.Services
     //  return await _jsRuntime.InvokeAsync<T?>("indexedDBInterop.getAllItems", storeName);
     //}
 
-    public async Task<T> GetRandomItemAsync<T>(string dbName, string storeName)
+    public async Task<T> GetRandomItemAsync<T>(string entryDbName, string entryStoreName, string prizeDbName, string prizeStoreName)
     {
-        return await _jsRuntime.InvokeAsync<T>("indexedDBInterop.getRandomItem", dbName, storeName);
+        return await _jsRuntime.InvokeAsync<T>("indexedDBInterop.getRandomItem", entryDbName, entryStoreName, prizeDbName, prizeStoreName);
       
       
     }
