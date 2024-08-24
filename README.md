@@ -1,4 +1,4 @@
-# LuckyDrawApp
+# Lucky-Day
 Make somebody a Lucky Day now!
 
 ## Introduction
