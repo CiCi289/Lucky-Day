@@ -34,6 +34,21 @@ namespace LuckyDrawApp.Services
       await _jsRuntime.InvokeVoidAsync("indexedDBInterop.createPrizeDb", dbName);
     }
 
+    public async Task CreateGalleryDbAsync(string dbName)
+    {
+      await _jsRuntime.InvokeVoidAsync("indexedDBInterop.createGalleryDb", dbName);
+    }
+
+    public async Task AddImageToGalleryAsync(string dbName, byte[] imageData)
+    {
+      await _jsRuntime.InvokeVoidAsync("indexedDBInterop.addImageToGallery", dbName, "Gallery", imageData);
+    }
+
+    public async Task<List<byte[]>> GetAllImagesFromGalleryAsync(string dbName)
+    {
+      return await _jsRuntime.InvokeAsync<List<byte[]>>("indexedDBInterop.getAllImagesFromGallery", dbName, "Gallery");
+    }
+
     public async Task AddItemAsync<T>(string dbName, string storeName, T item)
     {
       await _jsRuntime.InvokeVoidAsync("indexedDBInterop.addItem", dbName, storeName, item);
@@ -115,5 +130,8 @@ namespace LuckyDrawApp.Services
     {
       return await _jsRuntime.InvokeAsync<string>("indexedDBInterop.deleteDatabase", dbName);
     }
+
+
+
   }
 }

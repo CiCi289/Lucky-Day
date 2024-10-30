@@ -1,0 +1,55 @@
+﻿@page "/settings"
+@using LuckyDrawApp.Models
+@using LuckyDrawApp.Services
+@inject IJSRuntime JSRuntime
+@inject IndexedDBService IndexedDBService
+
+<h3>Settings</h3>
+
+<div>
+    <h4>Select Background Image</h4>
+  <select class="form-control" @onchange="OnImageSelected">
+        <option value="">Select Image</option>
+        @foreach (var image in galleryImages)
+        {
+            <option value="@image.FileName">@image.FileName</option>
+        }
+    </select>
+</div>
+
+@code {
+    private string selectedBgImageName = "";
+    private List<GalleryBase> galleryImages = new List<GalleryBase>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await IndexedDBService.CreateGalleryDbAsync("GalleryDatabase");
+        galleryImages = await IndexedDBService.GetAllItemsAsync<List<GalleryBase>>("GalleryDatabase", "Gallery");
+        // Optionally load a previously selected image from local storage
+        var savedImageName = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "backgroundImageId");
+        if (savedImageName != null)
+        {
+          selectedBgImageName = savedImageName;
+          SetBodyBackground(selectedBgImageName);
+        }
+    }
+
+    private async Task OnImageSelected(ChangeEventArgs e)
+    {
+        selectedBgImageName = e.Value.ToString();
+        SetBodyBackground(selectedBgImageName);
+
+        // Save the selected image ID to local storage
+        await JSRuntime.InvokeVoidAsync("localStorage.setItem", "backgroundImageId", selectedBgImageName);
+    }
+
+    private void SetBodyBackground(string imageName)
+    {
+    var selectedImage = galleryImages.FirstOrDefault(img => img.FileName == imageName);
+        if (selectedImage != null)
+        {
+            var imageDataUrl = $"data:image/png;base64,{Convert.ToBase64String(selectedImage.ImageData)}";
+            JSRuntime.InvokeVoidAsync("setBodyBackground", imageDataUrl);
+        }
+    }
+}

@@ -53,6 +53,39 @@ window.indexedDBInterop = {
         });
     },
 
+    createGalleryDb: function (dbName, storeName) {
+        return new Promise((resolve, reject) => {
+            let request = indexedDB.open(dbName, 1);
+
+            request.onupgradeneeded = function (event) {
+                let db = event.target.result;
+                /*db.createObjectStore(storeName, { keyPath: "id", autoIncrement: true });*/
+
+                //if (!db.objectStoreNames.contains("Gallery")) {
+                //    db.createObjectStore("Gallery", { keyPath: 'id', autoIncrement: true });
+                //}
+                if (!db.objectStoreNames.contains("Gallery")) {
+                    const store = db.createObjectStore("Gallery", {
+                        keyPath: "id",
+                        autoIncrement: true
+                    });
+                    // Add indexes if needed
+                    /*store.createIndex("fileName", "fileName", { unique: true });*/
+                }
+            };
+
+            request.onsuccess = function () {
+                resolve(true);
+            };
+
+            request.onerror = function (event) {
+                reject(event.target.error);
+            };
+        });
+    },
+
+   
+
     addItem: function (dbName, storeName, item) {
         return new Promise((resolve, reject) => {
             let request = indexedDB.open(dbName);
@@ -194,7 +227,7 @@ window.indexedDBInterop = {
 
             request.onsuccess = function (event) {
                 let db = event.target.result;
-                let transaction = db.transaction(storeName, "readonly");
+                let transaction = db.transaction(storeName, "readonly"); /*Fix here*/
                 let store = transaction.objectStore(storeName);
                 let items = [];
 
@@ -816,6 +849,62 @@ window.indexedDBInterop = {
 
             request.onblocked = function () {
                 reject('Database deletion blocked. Make sure all connections are closed.');
+            };
+        });
+    },
+
+    addImageToGallery: function (dbName, storeName, imageData) {
+        return new Promise((resolve, reject) => {
+            let request = indexedDB.open(dbName);
+
+            request.onsuccess = function (event) {
+                let db = event.target.result;
+                let transaction = db.transaction(storeName, "readwrite");
+                let store = transaction.objectStore(storeName);
+                store.add({ image: imageData });
+
+                transaction.oncomplete = function () {
+                    resolve(true);
+                };
+
+                transaction.onerror = function (event) {
+                    reject(event.target.error);
+                };
+            };
+
+            request.onerror = function (event) {
+                reject(event.target.error);
+            };
+        });
+    },
+
+    getAllImagesFromGallery: function (dbName, storeName) {
+        return new Promise((resolve, reject) => {
+            let request = indexedDB.open(dbName);
+
+            request.onsuccess = function (event) {
+                let db = event.target.result;
+                let transaction = db.transaction(storeName, "readonly");
+                let store = transaction.objectStore(storeName);
+                let images = [];
+
+                store.openCursor().onsuccess = function (event) {
+                    let cursor = event.target.result;
+                    if (cursor) {
+                        images.push(cursor.value.image);
+                        cursor.continue();
+                    } else {
+                        resolve(images);
+                    }
+                };
+
+                transaction.onerror = function (event) {
+                    reject(event.target.error);
+                };
+            };
+
+            request.onerror = function (event) {
+                reject(event.target.error);
             };
         });
     }

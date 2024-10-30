@@ -1,0 +1,101 @@
+﻿@page "/galleryUpload"
+@using LuckyDrawApp.Models
+@using LuckyDrawApp.Services
+@inject IJSRuntime JSRuntime
+@inject IndexedDBService IndexedDBService
+@inject NavigationManager navigationManager
+@using Microsoft.AspNetCore.Components.Forms
+
+<h3>Gallery</h3>
+
+<div>
+  <InputFile OnChange="OnImageSelected" accept="image/*" />
+  <button class="btn btn-primary" @onclick="SaveImage" disabled="@(!canSaveImage)">Upload Image</button>
+</div>
+
+<h4>Uploaded Images</h4>
+<div class="image-grid">
+  @foreach (var image in galleryImages)
+  {
+    <img src="data:image/png;base64,@Convert.ToBase64String(image.ImageData)"  title="@image.FileName" style="width: 100px; height: 100px;" />
+  }
+</div>
+
+<div class="mb-3">
+  <button @onclick="DeleteDatabaseAsync" class="btn btn-danger">Delete Database</button>
+</div>
+
+
+
+@code {
+  private const long MaxFileSize = 20 * 1024 * 1024; // 20 MB limit
+  private byte[]? selectedImage;
+  private string selectedFileName = "";
+  private bool canSaveImage = false;
+  private string errorMessage = "";
+  private bool _isDatabaseDeleted = false;
+
+  private List<GalleryBase> galleryImages = new List<GalleryBase>();
+
+  protected override async Task OnInitializedAsync()
+  {
+    // Ensure GalleryDatabase is created and fetch all images
+    await IndexedDBService.CreateGalleryDbAsync("GalleryDatabase");
+      galleryImages = await IndexedDBService.GetAllItemsAsync<List<GalleryBase>>("GalleryDatabase", "Gallery");
+  }
+
+  private async Task OnImageSelected(InputFileChangeEventArgs e)
+  {
+    var file = e.File;
+    if (file.Size > MaxFileSize)
+    {
+      errorMessage = "File size exceeds the 20 MB limit. Please select a smaller file.";
+      canSaveImage = false;
+      return;
+    }
+    selectedFileName = file.Name;
+
+    using var stream = file.OpenReadStream(MaxFileSize);
+    using var ms = new MemoryStream();
+    await stream.CopyToAsync(ms);
+    selectedImage = ms.ToArray();
+
+    canSaveImage = true;
+    errorMessage = "";
+  }
+
+  private async Task SaveImage()
+  {
+    if (selectedImage != null)
+    {
+      var newImage = new GalleryBase { FileName = selectedFileName, ImageData = selectedImage };
+      await IndexedDBService.AddItemAsync("GalleryDatabase", "Gallery", newImage);
+
+      galleryImages.Add(newImage); 
+      selectedImage = null;
+      canSaveImage = false;
+    }
+  }
+
+  private async Task DeleteDatabaseAsync()
+  {
+    try
+    {
+      var result = await IndexedDBService.DeleteDatabaseAsync("GalleryDatabase");
+      Console.WriteLine(result);
+      StateHasChanged();
+      _isDatabaseDeleted = true;
+
+      galleryImages.Clear();
+      StateHasChanged();
+      _isDatabaseDeleted = false;
+      await JSRuntime.InvokeVoidAsync("location.reload");
+    }
+    catch (Exception ex)
+    {
+      Console.Error.WriteLine("Failed to delete database: " + ex.Message);
+      galleryImages.Clear();
+      await JSRuntime.InvokeVoidAsync("location.reload");
+    }
+  }
+}

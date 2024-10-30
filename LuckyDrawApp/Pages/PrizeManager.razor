@@ -13,6 +13,14 @@
       <div class="col-md-8 justify-content-end">
         <div class="input-group mb-3">
           <input type="text" class="form-control" placeholder="Enter new prize name" @bind="newPrizeName">
+          <select class="form-control" @bind="selectedImageName">
+            <option value="-1">Select Image</option>
+            @foreach (var image in galleryImages)
+            {
+              <option value="@image.FileName">@image.FileName</option>
+            }
+          </select>
+
           <div class="input-group-append">
             <button class="btn golden-button" @onclick="AddNewPrize">Add Prize</button>
           </div>
@@ -41,7 +49,25 @@
         <ul class="list-group">
           @foreach (var prize in _prizes)
           {
-            <li class="list-group-item">@prize.Name</li>
+            <li class="list-group-item">
+              @if (prize.ImageData != null)
+              {
+                <img src="data:image/png;base64,@Convert.ToBase64String(prize.ImageData)" style="width: 50px; height: 50px;"/>
+              }
+              else
+              {
+                <img src="./images/star-circle.svg" style="width: 50px; height: 50px;" />
+              }
+              <span class="px-3">@prize.Name</span>
+              @* <select @onchange="(e) => SelectImageForPrize(prize, int.Parse((string)e.Value))">
+                <option value="-1">Select Image</option>
+                @foreach (var image in galleryImages)
+                {
+                  <option value="@image.Id">@image.FileName</option>
+                }
+              </select> *@
+              
+            </li>
           }
         </ul>
       </div>
@@ -50,6 +76,8 @@
 
   </div>
 </div>
+
+
 
 <style>
   .golden-button {
@@ -88,14 +116,37 @@
     color: #ffd700;
     text-shadow: 0px 3px 2px 0px rgba(32, 29, 30, 0.25);
   }
+
+  .background-selector {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background-color: #f9f9f9;
+    padding: 10px;
+    border-radius: 5px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    z-index: 1000;
+  }
+
+
+    .background-selector i {
+        font-size: 18px;
+        color: #333;
+    }
 </style>
 
 
 @code {
-
+  private string selectedBgImageName = "";
 
   private string newPrizeName;
+  private string selectedImageName = "";
   private List<PrizeBase> _prizes = new List<PrizeBase>();
+  private List<GalleryBase> galleryImages = new List<GalleryBase>();
+
   private bool _isStoreCleared = false;
   private string storeClearedMessage = "";
 
@@ -105,21 +156,73 @@
   {
     // var db = await IndexedDBService.OpenDb("MyDatabase");
     await IndexedDBService.CreatePrizeDbAsync("PrizeDatabase");
+    await IndexedDBService.CreateGalleryDbAsync("GalleryDatabase");
     _prizes = (await IndexedDBService.GetAllItemsAsync<List<PrizeBase>>("PrizeDatabase", "Prize"));
+      galleryImages = (await IndexedDBService.GetAllItemsAsync<List<GalleryBase>>("GalleryDatabase", "Gallery"));
+
+    // load a previously selected image from local storage
+    var savedImageName = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "backgroundImageId");
+    if (savedImageName != null)
+    {
+      selectedBgImageName = savedImageName;
+      SetBodyBackground(selectedBgImageName);
+    }
   }
+
+  private void SetBodyBackground(string imageName)
+  {
+    var selectedImage = galleryImages.FirstOrDefault(img => img.FileName == imageName);
+    if (selectedImage != null)
+    {
+      var imageDataUrl = $"data:image/png;base64,{Convert.ToBase64String(selectedImage.ImageData)}";
+      JSRuntime.InvokeVoidAsync("setBodyBackground", imageDataUrl);
+    }
+  }
+  // private async Task AddNewPrize()
+  // {
+  //   if (!string.IsNullOrWhiteSpace(newPrizeName) && !_prizes.Any(p => p.Name.Equals(newPrizeName, StringComparison.OrdinalIgnoreCase)))
+  //   {
+  //     var newPrize = new PrizeBase { Name = newPrizeName };
+
+  //     _prizes.Add(newPrize);
+
+  //     await IndexedDBService.AddItemAsync("PrizeDatabase", "Prize", newPrize);
+  //     newPrizeName = "";
+  //     StateHasChanged();
+  //   }
+  // }
+
   private async Task AddNewPrize()
   {
     if (!string.IsNullOrWhiteSpace(newPrizeName) && !_prizes.Any(p => p.Name.Equals(newPrizeName, StringComparison.OrdinalIgnoreCase)))
     {
       var newPrize = new PrizeBase { Name = newPrizeName };
 
+      // Find the selected image
+      var selectedImage = galleryImages.FirstOrDefault(i => i.FileName == selectedImageName);
+      if (selectedImage != null)
+      {
+        newPrize.ImageData = selectedImage.ImageData;
+      }
+
       _prizes.Add(newPrize);
 
       await IndexedDBService.AddItemAsync("PrizeDatabase", "Prize", newPrize);
       newPrizeName = "";
+      selectedImageName = "";
       StateHasChanged();
     }
   }
+
+  // private async Task SelectImageForPrize(Prize prize, int imageId)
+  // {
+  //   var selectedImage = galleryImages.FirstOrDefault(i => i.Id == imageId);
+  //   if (selectedImage != null)
+  //   {
+  //     prize.ImageData = selectedImage.ImageData;
+  //     await IndexedDBService.UpdateItemAsync("PrizeDatabase", "Prize", prize);
+  //   }
+  // }
 
   // private async Task ClearStoreAsync()
   // {
